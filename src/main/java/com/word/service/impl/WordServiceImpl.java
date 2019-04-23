@@ -133,6 +133,8 @@ public class WordServiceImpl implements WordService {
                             if (matcher.find()){
                                 String group = matcher.group();
                                 LinkedHashMap linkedHashMap = definitions.get(group);
+
+                                Object required = linkedHashMap.get("required");
                                 Object properties = linkedHashMap.get("properties");
                                 if (properties!=null && properties instanceof LinkedHashMap){
                                     LinkedHashMap<String,LinkedHashMap> properties1 = (LinkedHashMap) properties;
@@ -140,10 +142,16 @@ public class WordServiceImpl implements WordService {
                                     while (iterator.hasNext()){
                                         Map.Entry<String, LinkedHashMap> next = iterator.next();
                                         request = new Request();
+                                        String key = next.getKey();
                                         LinkedHashMap nextValue = next.getValue();
-                                        request.setName(next.getKey());
+                                        request.setName(key);
                                         request.setType(String.valueOf(nextValue.get("type")));
-                                        request.setRequire(nextValue.get("required")==null?false: (Boolean) nextValue.get("required"));
+                                        if (required!=null && required instanceof ArrayList){
+                                            ArrayList arrayList = (ArrayList) required;
+                                            request.setRequire(arrayList.contains(key));
+                                        }else {
+                                            request.setRequire(nextValue.get("required")==null?false: (Boolean) nextValue.get("required"));
+                                        }
                                         request.setRemark(String.valueOf(nextValue.get("description")));
                                         request.setParamType("body");
                                         requestList.add(request);
@@ -163,34 +171,9 @@ public class WordServiceImpl implements WordService {
                     String statusCode = entry.getKey();
                     if ("200".equals(statusCode)){
                         LinkedHashMap<String, Object> statusCodeInfo = (LinkedHashMap) entry.getValue();
-                        Object object = statusCodeInfo.get("schema");
-                        if(object!=null && object instanceof LinkedHashMap){
-                            LinkedHashMap<String,String> schema = (LinkedHashMap) object;
-                            if (schema!=null && StringUtils.isNotEmpty(schema.get("$ref"))){
-                                String $ref = schema.get("$ref");
-                                Pattern pattern = Pattern.compile("\\w*<<\\w*>>$");
-                                Matcher matcher = pattern.matcher($ref);
-                                if (matcher.find()){
-                                    String group = matcher.group();
-                                    LinkedHashMap linkedHashMap = definitions.get(group);
-                                    if (linkedHashMap!=null){
-                                        Object properties = linkedHashMap.get("properties");
-                                        if (properties!=null && properties instanceof LinkedHashMap){
-                                            LinkedHashMap<String,LinkedHashMap> properties1 = (LinkedHashMap) properties;
-                                            Iterator<Map.Entry<String, LinkedHashMap>> iterator = properties1.entrySet().iterator();
-                                            while (iterator.hasNext()){
-                                                Map.Entry<String, LinkedHashMap> next = iterator.next();
-                                                Response response = new Response();
-                                                LinkedHashMap nextValue = next.getValue();
-                                                response.setName(next.getKey());
-                                                response.setRemark(String.valueOf(nextValue.get("type")));
-                                                response.setDescription(String.valueOf(nextValue.get("description")));
-                                                responseList.add(response);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                        Object schema = statusCodeInfo.get("schema");
+                        if (schema!=null && schema instanceof LinkedHashMap) {
+                            getResponseList(definitions, responseList, schema);
                         }
 //                        String statusDescription = (String) statusCodeInfo.get("description");
 //                        response.setName(statusCode);
@@ -231,6 +214,72 @@ public class WordServiceImpl implements WordService {
             }
         }
         return hashMap;
+    }
+
+    private void getResponseList(LinkedHashMap<String, LinkedHashMap> definitions, List<Response> responseList, Object object) {
+        if(object!=null && object instanceof LinkedHashMap){
+            LinkedHashMap<String,String> schema = (LinkedHashMap) object;
+            if (schema!=null && StringUtils.isNotEmpty(schema.get("$ref"))){
+                String $ref = schema.get("$ref");
+                Pattern pattern = null;
+                if ($ref.contains("«")){
+                    pattern = Pattern.compile("\\w*«\\w*»$");
+                }else {
+                    pattern = Pattern.compile("\\w*$");
+                }
+                Matcher matcher = pattern.matcher($ref);
+                if (matcher.find()){
+                    String group = matcher.group();
+                    getProperties(definitions, responseList, group);
+                }
+            }
+        }
+    }
+
+    private void getProperties(LinkedHashMap<String, LinkedHashMap> definitions, List<Response> responseList, String group) {
+        LinkedHashMap linkedHashMap = definitions.get(group);
+        if (linkedHashMap!=null){
+            Object properties = linkedHashMap.get("properties");
+            if (properties!=null && properties instanceof LinkedHashMap){
+                LinkedHashMap<String,LinkedHashMap> properties1 = (LinkedHashMap) properties;
+                Iterator<Map.Entry<String, LinkedHashMap>> iterator = properties1.entrySet().iterator();
+                while (iterator.hasNext()){
+                    Map.Entry<String, LinkedHashMap> next = iterator.next();
+                    Response response = new Response();
+                    LinkedHashMap nextValue = next.getValue();
+                    response.setName(next.getKey());
+                    response.setRemark(String.valueOf(nextValue.get("type")));
+                    response.setDescription(String.valueOf(nextValue.get("description")));
+                    responseList.add(response);
+                }
+                if (properties1.containsKey("data")){
+                    LinkedHashMap data = properties1.get("data");
+                    if (data.containsKey("items")){
+                        Object items = data.get("items");
+                        if (items!=null && items instanceof LinkedHashMap) {
+                            getResponseList(definitions, responseList, items);
+                        }
+                    }
+                    if (data.containsKey("$ref")){
+                        Object $ref = data.get("$ref");
+                        Pattern pattern = null;
+                        if ($ref!=null && StringUtils.isNotEmpty($ref.toString())){
+                            String s = $ref.toString();
+                            if (s.contains("«")){
+                                pattern = Pattern.compile("\\w*«\\w*»$");
+                            }else {
+                                pattern = Pattern.compile("\\w*$");
+                            }
+                            Matcher matcher = pattern.matcher(s);
+                            if (matcher.find()){
+                                group = matcher.group();
+                                getProperties(definitions, responseList, group);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private List<Response> listResponse() {

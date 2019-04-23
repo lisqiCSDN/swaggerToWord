@@ -75,29 +75,29 @@
                         </c:forEach>
                         <tr class="bg" align="center">
                             <td>返回参数</td>
-                            <td>描述</td>
-                            <td colspan="3">说明</td>
+                            <td>数据类型</td>
+                            <td colspan="3">描述</td>
                         </tr>
 
                         <c:forEach items="${t.responseList}" var="res">
                             <tr align="center">
                                 <td>${res.name}</td>
-                                <td>${res.description}</td>
-                                <td colspan="3">${res.remark}</td>
+                                <td>${res.remark}</td>
+                                <td colspan="3">${res.description}</td>
                             </tr>
                         </c:forEach>
 
-                        <tr class="bg">
+                        <%--<tr class="bg">
                             <td colspan="5">示例</td>
-                        </tr>
+                        </tr>--%>
                         <%--<tr class="specialHeight">
                             <td class="bg">请求参数</td>
                             <td colspan="4">${t.requestParam}</td>
                         </tr>--%>
-                        <tr class="specialHeight">
+                        <%--<tr class="specialHeight">
                             <td class="bg">返回值</td>
                             <td colspan="4">${t.responseParam}</td>
-                        </tr>
+                        </tr>--%>
                     </table>
                     <br>
                 </c:forEach>
